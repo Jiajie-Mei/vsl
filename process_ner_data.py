@@ -32,9 +32,11 @@ def process_file(data_file):
     tags = []
     sent = []
     tag = []
+    doc_count = 0
     with open(data_file, 'r', encoding='utf-8') as df:
         for line in df.readlines():
             if line[0:10] == '-DOCSTART-':
+                doc_count += 1
                 continue
             if line.strip():
                 word = line.strip().split(" ")[0]
@@ -45,8 +47,11 @@ def process_file(data_file):
                 if sent and tag:
                     sents.append(sent)
                     tags.append(tag)
+                    if len(sents) % 500 == 0:
+                        logging.info('%d docs are parsed, %d sentences are parsed' % (doc_count, len(sents)))
                 sent = []
                 tag = []
+
     return sents, tags
 
 
