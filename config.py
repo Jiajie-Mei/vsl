@@ -24,10 +24,12 @@ def get_parser():
     basic_group.add_argument('--model', type=str, default='g',
                              choices=['g', 'flat', 'hier'],
                              help='type of model (default: g)')
-    basic_group.add_argument('--random_seed', type=int, default=0,
+    basic_group.add_argument('--random_seed', type=int, default=2375,
                              help='Random seed (default: 0)')
 
     data = parser.add_argument_group('data')
+    data.add_argument('--dataset', type=str, default='conll2003',
+                      help='which dataset')
     data.add_argument('--prefix', type=str, default=None,
                       help='save file prefix (default: None)')
     data.add_argument('--data_file', type=str, default=None,
@@ -137,7 +139,7 @@ def get_parser():
                        help='weight decay rate (default: 0)')
     train.add_argument('--grad_clip', type=float, default=10.,
                        help='gradient clipping (default: 10)')
-    train.add_argument('--f1_score', type="bool", default=False,
+    train.add_argument('--f1_score', type="bool", default=True,
                        help='whether to report F1 score (default: False)')
 
     misc = parser.add_argument_group('misc')

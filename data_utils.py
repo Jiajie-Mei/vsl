@@ -10,6 +10,16 @@ from config import UNK_WORD_IDX, UNK_WORD, UNK_CHAR_IDX, \
     UNK_CHAR
 
 
+def parse_one_billion_word(path_file):
+    list_sents = []
+    for line in open(path_file, encoding='utf-8'):
+        line = line.strip()
+        if not line:
+            continue
+        list_sents.append(line.split())
+    return list_sents
+
+
 class data_holder:
     @auto_init_args
     def __init__(self, train, dev, test, unlabel,
@@ -49,6 +59,10 @@ class data_processor:
 
         self.expe.log.info("tag vocab size: {}".format(len(tag_vocab)))
 
+        # train_data is tuple,
+        # 0: the list of sentences
+        # 1: the list of list of chars
+        # 2: the list of tags
         train_data = self._label_to_idx(
             train_data[0], train_data[1], vocab, char_vocab, tag_vocab)
         dev_data = self._label_to_idx(

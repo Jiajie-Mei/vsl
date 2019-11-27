@@ -217,7 +217,7 @@ def run(e):
                             "unlabel/" + name, value, it)
             label_stats.reset()
             unlabel_stats.reset()
-        if (it + 1) % e.config.eval_every == 0:
+        if (it + 1) % e.config.eval_every == 0 or it == e.config.n_iter - 1:
 
             e.log.info("*" * 25 + " DEV SET EVALUATION " + "*" * 25)
 

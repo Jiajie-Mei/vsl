@@ -3,7 +3,7 @@ import logging
 import argparse
 import os
 import pickle
-
+import subprocess
 import numpy as np
 
 from config import get_parser
@@ -321,12 +321,81 @@ class f1_reporter:
         return {"acc": acc, "f1": f1, "prec": prec, "rec": recall}, f1
 
 
+def extract_conll_metrics(path_test_results):
+    marker = 'accuracy'  # marks the result line of the overall metrics
+    with open(path_test_results, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith(marker):
+                cols = [[field.strip() for field in item.split(':')] for item in line.split(';')]
+                return {
+                    metric: float(value.rstrip('%'))
+                    for metric, value in cols
+                }
+    return dict()
+
+
+def conll_eval(path_test_results, dataset):
+    eval_script = './eval_tools/%s_eval.pl' % dataset
+    path_final_results = 'eval_tmp.txt'
+    subprocess.run('perl %s <%s >%s 2>err_log' % (eval_script, path_test_results, path_final_results), shell=True)
+    return extract_conll_metrics(path_final_results)
+
+
+def pair_ground_and_prediction(ground_truth, prediction, dict_id2tag: dict, seq_len):
+    """
+
+    :param ground_truth: [batch_size, seq_len], ground truth tag ids
+    :param prediction: [batch_size, seq_len], predicted tags, list of list
+    :param dict_id2tag: dict, map tag_id to tag
+    :param seq_len: [batch_size]
+    :return:
+    """
+
+    batch_size = ground_truth.shape[0]
+
+    list_results = []
+    for i in range(batch_size):
+        result = []
+        for j in range(seq_len[i]):
+            result.append((dict_id2tag[ground_truth[i, j]], dict_id2tag[prediction[i][j]]))
+        list_results.append(result)
+
+    return list_results
+
+
+def write_for_eval(ground_labels, list_predictions, mask, vocab, f_test_results):
+    # [batch_size]
+    seq_len = np.sum(mask, axis=-1).astype(np.int32)
+
+    list_paired_ground_pred = pair_ground_and_prediction(
+        ground_labels, list_predictions, vocab, seq_len)
+
+    for example in list_paired_ground_pred:
+        for ground, pred in example:
+            f_test_results.write('%s %s\n' % (ground, pred))
+        f_test_results.write('\n')  # a new line boundary
+
+
+def to_string(mapping: dict):
+    info = []
+
+    for key, value in mapping.items():
+        info.append('{}={}'.format(key, value))
+
+    return ', '.join(info)
+
+
 class evaluator:
     @auto_init_args
     def __init__(self, inv_tag_vocab, model, experiment):
         self.expe = experiment
 
     def evaluate(self, data):
+
+        path_test_results = 'groundtruth_and_prediction.txt'
+        f_test_results = open(path_test_results, 'w', encoding='utf-8')
+
         self.model.eval()
         eval_stats = tracker(["log_loss"])
         if self.expe.config.f1_score:
@@ -345,6 +414,8 @@ class evaluator:
             pred, log_loss = outputs[-1], outputs[1]
             reporter.update(pred, label, mask)
 
+            write_for_eval(label, pred, mask, self.inv_tag_vocab, f_test_results)
+
             eval_stats.update(
                 {"log_loss": log_loss}, mask.sum())
         perf, res = reporter.report()
@@ -352,4 +423,12 @@ class evaluator:
             ", ".join([x[0] + ": {:.5f}".format(x[1])
                       for x in sorted(perf.items())]))
         self.expe.log.info(summary)
-        return perf, res
+
+        f_test_results.close()
+        dict_results = {
+            metric: value
+            for metric, value in conll_eval(path_test_results, self.expe.config.dataset).items()
+        }
+        self.expe.log.info(to_string(dict_results))
+
+        return perf, float(dict_results['FB1'])

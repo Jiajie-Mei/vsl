@@ -4,6 +4,7 @@ import logging
 
 from sklearn.model_selection import train_test_split
 from collections import Counter
+from data_utils import parse_one_billion_word
 
 
 def get_args():
@@ -15,8 +16,8 @@ def get_args():
                         help='dev data path')
     parser.add_argument('--test', type=str, default=None,
                         help='test data path')
-    parser.add_argument('--ratio', type=float, default=1.,
-                        help='ratio of labeled data')
+    parser.add_argument('--unlabeled', type=str, default=None,
+                        help='unlabeled data path')
     args = parser.parse_args()
     return args
 
@@ -63,38 +64,25 @@ if __name__ == "__main__":
     train = process_file(args.train)
     dev = process_file(args.dev)
     test = process_file(args.test)
+    logging.info('processing %s' % args.unlabeled)
+    unlabeled = parse_one_billion_word(args.unlabeled)
 
     tag_counter = Counter(sum(train[1], []) +
                           sum(dev[1], []) + sum(test[1], []))
-    with open("ner_tagfile".format(args.ratio), "w+", encoding='utf-8') as fp:
+
+    with open("ner_tagfile", "w+", encoding='utf-8') as fp:
         fp.write('\n'.join(sorted(tag_counter.keys())))
 
-    if args.ratio < 1:
-        n_unlabel = len(train[0]) // 2
-        X_train, X_test, y_train, y_test = \
-            train_test_split(train[0], train[1], test_size=args.ratio)
-        other = [X_train, y_train]
-        train = [X_test, y_test]
+    logging.info("#unlabeled data: {}".format(len(unlabeled)))
 
-        X_train, X_test, y_train, y_test = \
-            train_test_split(other[0], other[1], test_size=n_unlabel)
-
-        unlabel_data = X_test
-        logging.info("#unlabeled data: {}".format(len(X_test)))
-
-        with open("ner{}_unlabel.data".format(args.ratio),
-                  "w+", encoding='utf-8') as fp:
-            fp.write(
-                "\n".join([" ".join([w for w in sent])
-                          for sent in unlabel_data]))
-        logging.info(
-            "unlabeled data saved to {}".format(
-                "ner{}_unlabel.data".format(args.ratio)))
+    with open("ner_unlabel.data", "w+", encoding='utf-8') as fp:
+        fp.write("\n".join([" ".join(sent) for sent in unlabeled]))
+    logging.info("unlabeled data saved to {}".format("ner_unlabel.data"))
 
     logging.info("#train data: {}".format(len(train[0])))
     logging.info("#dev data: {}".format(len(dev[0])))
     logging.info("#test data: {}".format(len(test[0])))
 
     pickle.dump(
-        [train, dev, test], open("ner{}.data".format(args.ratio), "wb+"),
+        [train, dev, test], open("ner.data", "wb+"),
         protocol=-1)
