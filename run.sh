@@ -57,5 +57,5 @@ srun --gres=gpu:V100:1 python -u ${main_file} \
 --unlabel_file ner_unlabel.data \
 --embed_file ${data_root}/pretrained_embeddings/glove.6B.100d.txt \
 --embed_type glove \
---tag_file ner_tagfile > log.txt 2>&1
+--tag_file ner_tagfile > log_train.txt 2>&1
 
