@@ -342,13 +342,35 @@ def conll_eval(path_test_results, dataset):
     return extract_conll_metrics(path_final_results)
 
 
-def pair_ground_and_prediction(ground_truth, prediction, dict_id2tag: dict, seq_len):
+def iobes_iob(tags):
+    """
+    IOBES -> IOB
+    """
+    new_tags = []
+    for i, tag in enumerate(tags):
+        if tag.split('-')[0] == 'B':
+            new_tags.append(tag)
+        elif tag.split('-')[0] == 'I':
+            new_tags.append(tag)
+        elif tag.split('-')[0] == 'S':
+            new_tags.append(tag.replace('S-', 'B-'))
+        elif tag.split('-')[0] == 'E':
+            new_tags.append(tag.replace('E-', 'I-'))
+        elif tag.split('-')[0] == 'O':
+            new_tags.append(tag)
+        else:
+            raise Exception('Invalid format!')
+    return new_tags
+
+
+def pair_ground_and_prediction(ground_truth, prediction, dict_id2tag: dict, seq_len, tagging):
     """
 
     :param ground_truth: [batch_size, seq_len], ground truth tag ids
     :param prediction: [batch_size, seq_len], predicted tags, list of list
     :param dict_id2tag: dict, map tag_id to tag
     :param seq_len: [batch_size]
+    :param tagging: str, iobes or iob
     :return:
     """
 
@@ -356,20 +378,31 @@ def pair_ground_and_prediction(ground_truth, prediction, dict_id2tag: dict, seq_
 
     list_results = []
     for i in range(batch_size):
-        result = []
+        current_labels = []
+        current_preds = []
+
         for j in range(seq_len[i]):
-            result.append((dict_id2tag[ground_truth[i, j]], dict_id2tag[prediction[i][j]]))
-        list_results.append(result)
+            current_labels.append(dict_id2tag[ground_truth[i, j]])
+            current_preds.append(dict_id2tag[prediction[i][j]])
+
+        # maybe convert bioes to bio
+        if tagging == 'iobes':
+            current_labels = iobes_iob(current_labels)
+            current_preds = iobes_iob(current_preds)
+
+        list_results.append(
+            [(lab, pred) for lab, pred in zip(current_labels, current_preds)]
+        )
 
     return list_results
 
 
-def write_for_eval(ground_labels, list_predictions, mask, vocab, f_test_results):
+def write_for_eval(ground_labels, list_predictions, mask, vocab, f_test_results, tagging):
     # [batch_size]
     seq_len = np.sum(mask, axis=-1).astype(np.int32)
 
     list_paired_ground_pred = pair_ground_and_prediction(
-        ground_labels, list_predictions, vocab, seq_len)
+        ground_labels, list_predictions, vocab, seq_len, tagging)
 
     for example in list_paired_ground_pred:
         for ground, pred in example:
@@ -414,7 +447,7 @@ class evaluator:
             pred, log_loss = outputs[-1], outputs[1]
             reporter.update(pred, label, mask)
 
-            write_for_eval(label, pred, mask, self.inv_tag_vocab, f_test_results)
+            write_for_eval(label, pred, mask, self.inv_tag_vocab, f_test_results, self.expe.config.tagging)
 
             eval_stats.update(
                 {"log_loss": log_loss}, mask.sum())
@@ -427,7 +460,7 @@ class evaluator:
         f_test_results.close()
         dict_results = {
             metric: value
-            for metric, value in conll_eval(path_test_results, self.expe.config.dataset).items()
+            for metric, value in conll_eval(path_test_results, 'conll2000' if self.expe.config.tagging == 'iobes' else self.expe.config.dataset).items()
         }
         self.expe.log.info(to_string(dict_results))
 

@@ -18,6 +18,8 @@ model="${2}"
 
 num_unlabeled="${3}"
 [[ "${num_unlabeled}" == "" ]] && num_unlabeled=0
+tagging="${4}"
+[[ "${tagging}" == "" ]] && tagging=iobes
 
 
 data_root=${user_home}/Datasets/semi_supervised
@@ -27,18 +29,22 @@ use_unlabeled=False
 [[ ${num_unlabeled} -ne 0 ]] && use_unlabeled=True
 
 
+raw_dataset=CoNLL2003
+[[ ${dataset} == conll2000 ]] && raw_dataset=CoNLL2000
+[[ ${tagging} == iobes ]] && raw_dataset=${raw_dataset}_iobes
+
 if [[ ${dataset} == conll2003 ]]; then
   srun -p cpu python -u process_ner_data.py \
-  --train ${data_home}/CoNLL2003/eng.train \
-  --dev ${data_home}/CoNLL2003/eng.testa \
-  --test ${data_home}/CoNLL2003/eng.testb \
-  --unlabeled ${data_home}/CoNLL2003/one_billion_words_$(printf "%06d" ${num_unlabeled}).txt
+  --train ${data_home}/${raw_dataset}/eng.train \
+  --dev ${data_home}/${raw_dataset}/eng.testa \
+  --test ${data_home}/${raw_dataset}/eng.testb \
+  --unlabeled ${data_home}/${raw_dataset}/one_billion_words_$(printf "%06d" ${num_unlabeled}).txt
 elif [[ ${dataset} == conll2000 ]]; then
   srun -p cpu python -u process_ner_data.py \
-  --train ${data_home}/CoNLL2000/split_train.txt \
-  --dev ${data_home}/CoNLL2000/split_dev.txt \
-  --test ${data_home}/CoNLL2000/test.txt \
-  --unlabeled ${data_home}/CoNLL2000/one_billion_words_$(printf "%06d" ${num_unlabeled}).txt
+  --train ${data_home}/${raw_dataset}/split_train.txt \
+  --dev ${data_home}/${raw_dataset}/split_dev.txt \
+  --test ${data_home}/${raw_dataset}/test.txt \
+  --unlabeled ${data_home}/${raw_dataset}/one_billion_words_$(printf "%06d" ${num_unlabeled}).txt
 fi
 
 

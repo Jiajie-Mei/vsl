@@ -139,6 +139,8 @@ def get_parser():
                        help='weight decay rate (default: 0)')
     train.add_argument('--grad_clip', type=float, default=10.,
                        help='gradient clipping (default: 10)')
+    train.add_argument('--tagging', type=str, default='iobes',
+                       help='tagging scheme to use')
     train.add_argument('--f1_score', type="bool", default=True,
                        help='whether to report F1 score (default: False)')
 
