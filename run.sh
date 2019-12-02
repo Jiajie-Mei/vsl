@@ -52,7 +52,7 @@ main_file=vsl_gg.py
 [[ ${model} == g ]] && main_file=vsl_g.py
 
 
-srun --gres=gpu:V100:1 python -u ${main_file} \
+srun --gres=gpu:P100:1 -p sugon python -u ${main_file} \
 --prefix ./log \
 --model ${model} \
 --dataset ${dataset} \
